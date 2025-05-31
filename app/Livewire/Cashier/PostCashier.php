@@ -6,6 +6,10 @@ use Livewire\Component;
 
 class PostCashier extends Component
 {
+    // Basic properties
+    public $activeCustomer = 0;
+    public $customers = [];
+
     public $qty = 1;
     public $productName = '';
     public $costPrice = '';
@@ -23,59 +27,143 @@ class PostCashier extends Component
     public $totalSell = 0;
     public $profit = 0;
 
+    // Add listener for browser events
+    protected $listeners = ['restoreCustomers'];
+
     public function mount()
     {
-        $this->transactionDate = now()->format('Y-m-d\TH:i');
+        // Check session first
+        $savedData = session('cashier_data');
+        if ($savedData) {
+            $this->customers = $savedData['customers'];
+            $this->activeCustomer = $savedData['activeCustomer'];
+        } else {
+            $this->addNewCustomer();
+        }
+    }
+
+    public function hydrate()
+    {
+        // This runs after component hydration
+        $this->dispatch('saveCustomers', [
+            'customers' => $this->customers,
+            'activeCustomer' => $this->activeCustomer
+        ]);
+    }
+
+    public function dehydrate()
+    {
+        // This runs before component dehydration
+        $this->dispatch('saveCustomers', [
+            'customers' => $this->customers,
+            'activeCustomer' => $this->activeCustomer
+        ]);
+    }
+
+    public function updated()
+    {
+        // This will trigger Alpine's watcher
+        $this->dispatch('customer-updated');
+    }
+
+    public function restoreCustomers($data)
+    {
+        if (!empty($data['customers'])) {
+            $this->customers = $data['customers'];
+            $this->activeCustomer = $data['activeCustomer'];
+        } else {
+            $this->addNewCustomer();
+        }
+    }
+
+    public function addNewCustomer()
+    {
+        $newIndex = count($this->customers);
+        $this->customers[] = [
+            'id' => $newIndex,
+            'carType' => '',
+            'carId' => '',
+            'customerName' => '',
+            'customerPhone' => '',
+            'paymentMethod' => 'cash',
+            'transactionDate' => now()->format('Y-m-d\TH:i'),
+            'notes' => '',
+            'items' => [],
+            'totalItems' => 0,
+            'totalCost' => 0,
+            'totalSell' => 0,
+            'profit' => 0,
+            'qty' => 1,
+            'productName' => '',
+            'costPrice' => '',
+            'sellPrice' => '',
+        ];
+
+        $this->activeCustomer = $newIndex;
+    }
+
+    public function switchCustomer($index)
+    {
+        $this->activeCustomer = $index;
     }
 
     public function calculateRowTotal()
     {
-        return (int) $this->qty * ((int) $this->sellPrice ?: 0);
+        // Add safety check
+        if (!isset($this->customers[$this->activeCustomer])) {
+            return 0;
+        }
+
+        $customer = $this->customers[$this->activeCustomer];
+        return (float) $customer['sellPrice'] * (int) $customer['qty'];
     }
 
     public function addItem()
     {
-        $this->validate([
-            'productName' => 'required',
-            'qty' => 'required|numeric|min:1',
-            'costPrice' => 'required|numeric|min:0',
-            'sellPrice' => 'required|numeric|min:0',
-        ]);
+        $customer = &$this->customers[$this->activeCustomer];
 
-        $this->items[] = [
-            'id' => count($this->items) + 1,
-            'qty' => $this->qty,
-            'name' => $this->productName,
-            'costPrice' => $this->costPrice,
-            'sellPrice' => $this->sellPrice,
-            'total' => $this->calculateRowTotal()
+        if (!$customer['productName'] || (int) $customer['qty'] <= 0) {
+            return;
+        }
+
+        $customer['items'][] = [
+            'id' => count($customer['items']) + 1,
+            'qty' => (int) $customer['qty'],
+            'name' => $customer['productName'],
+            'costPrice' => (float) $customer['costPrice'],
+            'sellPrice' => (float) $customer['sellPrice'],
+            'total' => (float) $customer['sellPrice'] * (int) $customer['qty']
         ];
 
         $this->calculateTotals();
         $this->resetInputs();
     }
 
-    public function removeItem($index)
-    {
-        unset($this->items[$index]);
-        $this->items = array_values($this->items);
-        $this->calculateTotals();
-    }
-
     private function calculateTotals()
     {
-        $this->totalItems = collect($this->items)->sum('qty');
-        $this->totalCost = collect($this->items)->sum(fn($item) => $item['costPrice'] * $item['qty']);
-        $this->totalSell = collect($this->items)->sum(fn($item) => $item['sellPrice'] * $item['qty']);
-        $this->profit = $this->totalSell - $this->totalCost;
+        $customer = &$this->customers[$this->activeCustomer];
+
+        // Ensure values are numeric
+        $customer['totalItems'] = collect($customer['items'])->sum('qty');
+
+        $customer['totalCost'] = collect($customer['items'])->sum(function ($item) {
+            return (float) $item['costPrice'] * (int) $item['qty'];
+        });
+
+        $customer['totalSell'] = collect($customer['items'])->sum(function ($item) {
+            return (float) $item['sellPrice'] * (int) $item['qty'];
+        });
+
+        $customer['profit'] = $customer['totalSell'] - $customer['totalCost'];
     }
 
     private function resetInputs()
     {
-        $this->qty = 1;
-        $this->productName = '';
-        $this->costPrice = '';
-        $this->sellPrice = '';
+        $customer = &$this->customers[$this->activeCustomer];
+        $customer['qty'] = 1;
+        $customer['productName'] = '';
+        $customer['costPrice'] = '';
+        $customer['sellPrice'] = '';
     }
 
     public function printNota()
@@ -90,6 +178,15 @@ class PostCashier extends Component
 
         // Add your print logic here
         $this->dispatch('print-nota');
+    }
+
+    // Optional: Clear data method
+    public function clearData()
+    {
+        session()->forget('cashier_data');
+        $this->customers = [];
+        $this->activeCustomer = 0;
+        $this->addNewCustomer();
     }
 
     public function render()

@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('cashiers', function (Blueprint $table) {
             $table->id();
-            $table->string('product_name');
             $table->string('total_buy');
             $table->foreignId('buyer_id')->constrained('buyers')->onDelete('cascade');
             $table->
