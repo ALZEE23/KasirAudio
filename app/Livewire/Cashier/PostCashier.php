@@ -27,12 +27,12 @@ class PostCashier extends Component
     public $totalSell = 0;
     public $profit = 0;
 
-    // Add listener for browser events
+    
     protected $listeners = ['restoreCustomers'];
 
     public function mount()
     {
-        // Check session first
+        
         $savedData = session('cashier_data');
         if ($savedData) {
             $this->customers = $savedData['customers'];
@@ -44,7 +44,7 @@ class PostCashier extends Component
 
     public function hydrate()
     {
-        // This runs after component hydration
+     
         $this->dispatch('saveCustomers', [
             'customers' => $this->customers,
             'activeCustomer' => $this->activeCustomer
@@ -53,7 +53,7 @@ class PostCashier extends Component
 
     public function dehydrate()
     {
-        // This runs before component dehydration
+       
         $this->dispatch('saveCustomers', [
             'customers' => $this->customers,
             'activeCustomer' => $this->activeCustomer
@@ -62,7 +62,7 @@ class PostCashier extends Component
 
     public function updated()
     {
-        // This will trigger Alpine's watcher
+
         $this->dispatch('customer-updated');
     }
 
@@ -109,7 +109,6 @@ class PostCashier extends Component
 
     public function calculateRowTotal()
     {
-        // Add safety check
         if (!isset($this->customers[$this->activeCustomer])) {
             return 0;
         }
@@ -143,7 +142,7 @@ class PostCashier extends Component
     {
         $customer = &$this->customers[$this->activeCustomer];
 
-        // Ensure values are numeric
+        
         $customer['totalItems'] = collect($customer['items'])->sum('qty');
 
         $customer['totalCost'] = collect($customer['items'])->sum(function ($item) {
@@ -176,11 +175,10 @@ class PostCashier extends Component
             return $this->addError('print', 'Nama pembeli harus diisi!');
         }
 
-        // Add your print logic here
+
         $this->dispatch('print-nota');
     }
 
-    // Optional: Clear data method
     public function clearData()
     {
         session()->forget('cashier_data');

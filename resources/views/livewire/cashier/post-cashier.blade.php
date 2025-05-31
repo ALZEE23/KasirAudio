@@ -229,6 +229,6 @@
 
 @push('scripts')
     <script>
-        // Remove the previous event listener code since we're now using Alpine.js
+        
     </script>
 @endpush
