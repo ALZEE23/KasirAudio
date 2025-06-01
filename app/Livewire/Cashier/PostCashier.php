@@ -27,12 +27,12 @@ class PostCashier extends Component
     public $totalSell = 0;
     public $profit = 0;
 
-    
+
     protected $listeners = ['restoreCustomers'];
 
     public function mount()
     {
-        
+
         $savedData = session('cashier_data');
         if ($savedData) {
             $this->customers = $savedData['customers'];
@@ -44,7 +44,7 @@ class PostCashier extends Component
 
     public function hydrate()
     {
-     
+
         $this->dispatch('saveCustomers', [
             'customers' => $this->customers,
             'activeCustomer' => $this->activeCustomer
@@ -53,7 +53,7 @@ class PostCashier extends Component
 
     public function dehydrate()
     {
-       
+
         $this->dispatch('saveCustomers', [
             'customers' => $this->customers,
             'activeCustomer' => $this->activeCustomer
@@ -138,11 +138,25 @@ class PostCashier extends Component
         $this->resetInputs();
     }
 
+    public function removeItem($index)
+    {
+        if (isset($this->customers[$this->activeCustomer]['items'][$index])) {
+            // Remove the item
+            unset($this->customers[$this->activeCustomer]['items'][$index]);
+
+            // Reindex the array
+            $this->customers[$this->activeCustomer]['items'] = array_values($this->customers[$this->activeCustomer]['items']);
+
+            // Recalculate totals
+            $this->calculateTotals();
+        }
+    }
+
     private function calculateTotals()
     {
         $customer = &$this->customers[$this->activeCustomer];
 
-        
+
         $customer['totalItems'] = collect($customer['items'])->sum('qty');
 
         $customer['totalCost'] = collect($customer['items'])->sum(function ($item) {
@@ -154,6 +168,12 @@ class PostCashier extends Component
         });
 
         $customer['profit'] = $customer['totalSell'] - $customer['totalCost'];
+
+        // Update component properties
+        $this->totalItems = $customer['totalItems'];
+        $this->totalCost = $customer['totalCost'];
+        $this->totalSell = $customer['totalSell'];
+        $this->profit = $customer['profit'];
     }
 
     private function resetInputs()
@@ -167,16 +187,20 @@ class PostCashier extends Component
 
     public function printNota()
     {
-        if (empty($this->items)) {
+        $customer = $this->customers[$this->activeCustomer];
+
+        if (empty($customer['items'])) {
             return $this->addError('print', 'Belum ada item dalam nota!');
         }
 
-        if (!$this->customerName) {
+        if (!$customer['customerName']) {
             return $this->addError('print', 'Nama pembeli harus diisi!');
         }
 
-
-        $this->dispatch('print-nota');
+        // Dispatch with HTML content
+        $this->dispatch('print-receipt', content: view('livewire.cashier.print-nota', [
+            'customer' => $customer
+        ])->render());
     }
 
     public function clearData()
