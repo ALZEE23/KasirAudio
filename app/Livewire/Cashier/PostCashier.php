@@ -208,7 +208,7 @@ class PostCashier extends Component
     public function printNota()
     {
         $customer = $this->customers[$this->activeCustomer];
-        $customer['transactionDate'] = $this->transactionDate; // Add transaction date
+        $customer['transactionDate'] = $this->transactionDate;
 
         if (empty($customer['items'])) {
             return $this->addError('print', 'Belum ada item dalam nota!');
@@ -248,19 +248,52 @@ class PostCashier extends Component
 
             DB::commit();
 
-            // Dispatch print event with added transaction date
+            // Dispatch print event
             $this->dispatch('print-receipt', content: view('livewire.cashier.print-nota', [
                 'customer' => $customer,
                 'cashier_id' => $cashier->id
             ])->render());
 
-            // Clear current customer data after successful save
-            $this->removeCustomer($this->activeCustomer);
+            // Only clear current customer's data, not remove them
+            $this->clearCustomerData($this->activeCustomer);
 
         } catch (\Exception $e) {
             DB::rollBack();
             $this->addError('print', 'Gagal menyimpan data: ' . $e->getMessage());
         }
+    }
+
+    // Add new method to clear customer data without removing
+    private function clearCustomerData($index)
+    {
+        // Reset customer data but keep the customer slot
+        $this->customers[$index] = [
+            'customerName' => '',
+            'customerPhone' => '',
+            'carType' => '',
+            'carId' => '',
+            'items' => [],
+            'totalItems' => 0,
+            'totalCost' => 0,
+            'totalSell' => 0,
+            'profit' => 0,
+            'qty' => 1,
+            'productId' => null,
+            'productName' => '',
+            'costPrice' => '',
+            'sellPrice' => ''
+        ];
+
+        // Reset component totals if this is the active customer
+        if ($index === $this->activeCustomer) {
+            $this->totalItems = 0;
+            $this->totalCost = 0;
+            $this->totalSell = 0;
+            $this->profit = 0;
+        }
+
+        // Reset temp customer data if needed
+        $this->loadCustomerData();
     }
 
     private function removeCustomer($index)
@@ -334,7 +367,7 @@ class PostCashier extends Component
         $customer['items'][] = [
             'product_id' => $product->id, // Changed from 'id' to 'product_id'
             'id' => $product->id, // Keep this for backward compatibility
-            'name' => $product['productName'],
+            'name' => $product['title'],
             'qty' => (int) $customer['qty'],
             'costPrice' => (float) $customer['costPrice'],
             'sellPrice' => (float) $customer['sellPrice'],

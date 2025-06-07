@@ -23,4 +23,8 @@ Route::view('products', 'product')
 Route::view('category', 'category')
     ->middleware(['auth'])
     ->name('category');
+
+Route::view('buyer', 'buyer')
+    ->middleware(['auth'])
+    ->name('buyer');
 require __DIR__ . '/auth.php';
