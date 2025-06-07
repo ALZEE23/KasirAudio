@@ -16,4 +16,11 @@ Route::view('cashier', 'cashier')
     ->middleware(['auth'])
     ->name('cashier');
 
+Route::view('products', 'product')
+    ->middleware(['auth'])
+    ->name('product');
+
+Route::view('category', 'category')
+    ->middleware(['auth'])
+    ->name('category');
 require __DIR__ . '/auth.php';

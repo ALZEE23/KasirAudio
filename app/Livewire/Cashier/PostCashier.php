@@ -2,7 +2,11 @@
 
 namespace App\Livewire\Cashier;
 
+use App\Models\Buyer;
+use App\Models\Cashier;
+use App\Models\Transaction;
 use Livewire\Component;
+use Illuminate\Support\Facades\DB;
 
 class PostCashier extends Component
 {
@@ -197,10 +201,61 @@ class PostCashier extends Component
             return $this->addError('print', 'Nama pembeli harus diisi!');
         }
 
-        // Dispatch with HTML content
-        $this->dispatch('print-receipt', content: view('livewire.cashier.print-nota', [
-            'customer' => $customer
-        ])->render());
+        try {
+            DB::beginTransaction();
+
+            // Create or update buyer
+            $buyer = Buyer::create([
+                'name' => $customer['customerName'],
+                'phone_number' => $customer['customerPhone'],
+                'car_number' => $customer['carId'],
+                'car_type' => $customer['carType']
+            ]);
+
+            // Create cashier record
+            $cashier = Cashier::create([
+                'buyer_id' => $buyer->id,
+                'total_buy' => $customer['totalSell'],
+                'quantity' => $customer['totalItems'],
+                'capital' => $customer['totalCost']
+            ]);
+
+            // Create transactions for each item
+            foreach ($customer['items'] as $item) {
+                Transaction::create([
+                    'cashier_id' => $cashier->id,
+                    'product_id' => $item['id'], // Assuming you have product_id
+                    'quantity' => $item['qty']
+                ]);
+            }
+
+            DB::commit();
+
+            // Dispatch print event
+            $this->dispatch('print-receipt', content: view('livewire.cashier.print-nota', [
+                'customer' => $customer,
+                'cashier_id' => $cashier->id
+            ])->render());
+
+            // Clear current customer data after successful save
+            $this->removeCustomer($this->activeCustomer);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->addError('print', 'Gagal menyimpan data: ' . $e->getMessage());
+        }
+    }
+
+    private function removeCustomer($index)
+    {
+        unset($this->customers[$index]);
+        $this->customers = array_values($this->customers);
+
+        if (empty($this->customers)) {
+            $this->addNewCustomer();
+        } else {
+            $this->activeCustomer = 0;
+        }
     }
 
     public function clearData()
