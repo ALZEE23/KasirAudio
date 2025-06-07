@@ -61,7 +61,7 @@
                         <td class="px-6 py-4 whitespace-nowrap">{{ $product->title }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">Rp {{ number_format($product->modal) }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $product->stock }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $product->category->title }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $product->category->category_name }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button 
                                 wire:click="$dispatch('editProduct', { id: {{ $product->id }} })"

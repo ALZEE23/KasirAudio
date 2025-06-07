@@ -29,7 +29,7 @@
                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200">
                 <option value="">Pilih Kategori</option>
                 @foreach($categories as $category)
-                    <option value="{{ $category->id }}">{{ $category->title }}</option>
+                    <option value="{{ $category->id }}">{{ $category->category_name }}</option>
                 @endforeach
             </select>
             @error('category_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror

@@ -6,7 +6,7 @@
         </h2>
     </x-slot>
 
-    <div class="min-h-screen bg-gray-100">
+    <div class="min-h-screen bg-gray-100 mb-24">
         <div class="space-y-4 px-32 pt-10">
             <livewire:product.post-product />
             <livewire:product.get-product />
