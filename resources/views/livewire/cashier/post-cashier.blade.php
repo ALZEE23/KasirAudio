@@ -80,10 +80,54 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Nama Pembeli</label>
-                        <input type="text" wire:model.defer="tempCustomerData.customerName"
-                            placeholder="Masukkan nama pembeli"
-                            value="{{ $customers[$activeCustomer]['customerName'] ?? '' }}"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200">
+                        <div x-data="{
+                            open: false,
+                            search: '',
+                            buyers: [],
+                            init() {
+                                this.$watch('search', value => {
+                                    if (value.length > 2) {
+                                        $wire.searchBuyer(value).then(result => {
+                                            this.buyers = result;
+                                            this.open = true;
+                                        });
+                                    } else {
+                                        this.buyers = [];
+                                        this.open = false;
+                                    }
+                                });
+                            }
+                        }" class="relative">
+                            <input type="text" 
+                                x-model="search"
+                                wire:model.defer="tempCustomerData.customerName"
+                                placeholder="Masukkan nama pembeli"
+                                @focus="open = true"
+                                @keydown.escape.window="open = false"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200">
+                            
+                            <div x-show="open && buyers.length > 0" 
+                                x-transition
+                                @click.away="open = false"
+                                class="absolute z-50 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                <template x-for="buyer in buyers" :key="buyer.id">
+                                    <div 
+                                        @click="
+                                            $wire.selectBuyer(buyer.id);
+                                            search = buyer.name;
+                                            open = false;
+                                        "
+                                        class="px-4 py-2 cursor-pointer hover:bg-gray-100">
+                                        <div class="font-medium" x-text="buyer.name"></div>
+                                        <div class="text-sm text-gray-600">
+                                            <span x-text="buyer.car_number"></span>
+                                            <span class="mx-1">-</span>
+                                            <span x-text="buyer.phone_number"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
                     </div>
 
                     <div>

@@ -221,13 +221,28 @@ class PostCashier extends Component
         try {
             DB::beginTransaction();
 
-            // Create or update buyer
-            $buyer = Buyer::create([
-                'name' => $customer['customerName'],
-                'phone_number' => $customer['customerPhone'],
-                'car_number' => $customer['carId'],
-                'car_type' => $customer['carType']
-            ]);
+            // Search for existing buyer first
+            $buyer = Buyer::where('phone_number', $customer['customerPhone'])
+                ->orWhere('car_number', $customer['carId'])
+                ->first();
+
+            // If buyer doesn't exist, create new one
+            if (!$buyer) {
+                $buyer = Buyer::create([
+                    'name' => $customer['customerName'],
+                    'phone_number' => $customer['customerPhone'],
+                    'car_number' => $customer['carId'],
+                    'car_type' => $customer['carType']
+                ]);
+            } else {
+                // Update existing buyer data
+                $buyer->update([
+                    'name' => $customer['customerName'],
+                    'phone_number' => $customer['customerPhone'],
+                    'car_number' => $customer['carId'],
+                    'car_type' => $customer['carType']
+                ]);
+            }
 
             // Create cashier record
             $cashier = Cashier::create([
@@ -426,6 +441,42 @@ class PostCashier extends Component
         // Remove the item
         unset($customer['items'][$index]);
         $customer['items'] = array_values($customer['items']);
+    }
+
+    public function searchBuyer($query)
+    {
+        if (empty($query))
+            return [];
+
+        return Buyer::where('name', 'like', "%{$query}%")
+            ->orWhere('phone_number', 'like', "%{$query}%")
+            ->orWhere('car_number', 'like', "%{$query}%")
+            ->limit(5)
+            ->get()
+            ->map(function ($buyer) {
+                return [
+                    'id' => $buyer->id,
+                    'name' => $buyer->name,
+                    'phone_number' => $buyer->phone_number,
+                    'car_number' => $buyer->car_number,
+                    'car_type' => $buyer->car_type
+                ];
+            })
+            ->toArray();
+    }
+
+    public function selectBuyer($buyerId)
+    {
+        $buyer = Buyer::find($buyerId);
+        if ($buyer) {
+            $this->tempCustomerData = [
+                'customerName' => $buyer->name,
+                'customerPhone' => $buyer->phone_number,
+                'carType' => $buyer->car_type,
+                'carId' => $buyer->car_number
+            ];
+            $this->saveCustomerData();
+        }
     }
 
     public function render()
