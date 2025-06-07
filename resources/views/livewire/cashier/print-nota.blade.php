@@ -14,7 +14,7 @@
     <table style="width: 100%; margin-bottom: 15px; border-collapse: collapse;">
         <tr>
             <td style="width: 120px;">No. Invoice</td>
-            <td>: INV-{{ date('Ymd') }}-{{ $customer['id'] }}</td>
+            <td>: INV-{{ date('Ymd') }}-{{ $cashier_id }}</td>
             <td style="width: 120px;">Nama Pelanggan</td>
             <td>: {{ $customer['customerName'] }}</td>
         </tr>
@@ -53,7 +53,8 @@
                     <td style="border: 1px solid #000; padding: 8px;">{{ $item['name'] }}</td>
                     <td style="border: 1px solid #000; padding: 8px; text-align: center;">{{ $item['qty'] }}</td>
                     <td style="border: 1px solid #000; padding: 8px; text-align: right;">
-                        {{ number_format($item['sellPrice']) }}</td>
+                        {{ number_format($item['sellPrice']) }}
+                    </td>
                     <td style="border: 1px solid #000; padding: 8px; text-align: right;">{{ number_format($item['total']) }}
                     </td>
                 </tr>
@@ -64,7 +65,8 @@
                 <td colspan="3" style="border: 1px solid #000; padding: 8px; text-align: right;"><strong>Total
                         Item:</strong></td>
                 <td style="border: 1px solid #000; padding: 8px; text-align: center;">
-                    <strong>{{ $customer['totalItems'] }}</strong></td>
+                    <strong>{{ $customer['totalItems'] }}</strong>
+                </td>
                 <td style="border: 1px solid #000; padding: 8px; text-align: right;"><strong>Rp
                         {{ number_format($customer['totalSell']) }}</strong></td>
             </tr>

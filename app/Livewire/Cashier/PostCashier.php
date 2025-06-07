@@ -4,43 +4,56 @@ namespace App\Livewire\Cashier;
 
 use App\Models\Buyer;
 use App\Models\Cashier;
+use App\Models\Product;
 use App\Models\Transaction;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
 
 class PostCashier extends Component
 {
-    // Basic properties
+    // Remove individual customer properties
     public $activeCustomer = 0;
     public $customers = [];
 
-    public $qty = 1;
-    public $productName = '';
-    public $costPrice = '';
-    public $sellPrice = '';
-    public $carType = '';
-    public $carId = '';
-    public $customerName = '';
-    public $customerPhone = '';
+    // Keep only transaction-related properties
     public $paymentMethod = 'cash';
     public $notes = '';
     public $transactionDate;
-    public $items = [];
     public $totalItems = 0;
     public $totalCost = 0;
     public $totalSell = 0;
     public $profit = 0;
+
+    // Add temporary customer data property
+    public $tempCustomerData = [
+        'customerName' => '',
+        'customerPhone' => '',
+        'carType' => '',
+        'carId' => ''
+    ];
+
+    public $products = [];
+    public $search = '';
 
 
     protected $listeners = ['restoreCustomers'];
 
     public function mount()
     {
+        // Get all products first
+        $this->products = Product::select('id', 'title', 'modal', 'stock')
+            ->get()
+            ->toArray();
 
+        // Set default transaction date
+        $this->transactionDate = now()->format('Y-m-d\TH:i');
+
+        // Initialize customers from session if exists
         $savedData = session('cashier_data');
         if ($savedData) {
             $this->customers = $savedData['customers'];
             $this->activeCustomer = $savedData['activeCustomer'];
+            $this->loadCustomerData();
         } else {
             $this->addNewCustomer();
         }
@@ -48,150 +61,154 @@ class PostCashier extends Component
 
     public function hydrate()
     {
+        // Ensure active customer data is loaded after component hydration
+        if (isset($this->customers[$this->activeCustomer])) {
+            $customer = $this->customers[$this->activeCustomer];
+            $this->totalItems = $customer['totalItems'] ?? 0;
+            $this->totalCost = $customer['totalCost'] ?? 0;
+            $this->totalSell = $customer['totalSell'] ?? 0;
+            $this->profit = $customer['profit'] ?? 0;
+        }
 
-        $this->dispatch('saveCustomers', [
-            'customers' => $this->customers,
-            'activeCustomer' => $this->activeCustomer
+        // Save to session after every update
+        session([
+            'cashier_data' => [
+                'customers' => $this->customers,
+                'activeCustomer' => $this->activeCustomer
+            ]
         ]);
     }
 
     public function dehydrate()
     {
-
-        $this->dispatch('saveCustomers', [
-            'customers' => $this->customers,
-            'activeCustomer' => $this->activeCustomer
+        // Save to session before component dehydrates
+        session([
+            'cashier_data' => [
+                'customers' => $this->customers,
+                'activeCustomer' => $this->activeCustomer
+            ]
         ]);
     }
 
-    public function updated()
+    public function updated($field)
     {
-
-        $this->dispatch('customer-updated');
+        // Handle customer data updates
+        if (str_starts_with($field, 'customers.')) {
+            $this->dispatch('customer-updated');
+        }
     }
 
     public function restoreCustomers($data)
     {
-        if (!empty($data['customers'])) {
+        // Only restore if we don't have any customers
+        if (empty($this->customers)) {
             $this->customers = $data['customers'];
             $this->activeCustomer = $data['activeCustomer'];
-        } else {
-            $this->addNewCustomer();
+
+            // Restore active customer totals
+            if (isset($this->customers[$this->activeCustomer])) {
+                $customer = $this->customers[$this->activeCustomer];
+                $this->totalItems = $customer['totalItems'];
+                $this->totalCost = $customer['totalCost'];
+                $this->totalSell = $customer['totalSell'];
+                $this->profit = $customer['profit'];
+            }
         }
     }
 
     public function addNewCustomer()
     {
-        $newIndex = count($this->customers);
+        // Create new customer with empty data
         $this->customers[] = [
-            'id' => $newIndex,
-            'carType' => '',
-            'carId' => '',
             'customerName' => '',
             'customerPhone' => '',
-            'paymentMethod' => 'cash',
-            'transactionDate' => now()->format('Y-m-d\TH:i'),
-            'notes' => '',
+            'carType' => '',
+            'carId' => '',
             'items' => [],
             'totalItems' => 0,
             'totalCost' => 0,
             'totalSell' => 0,
             'profit' => 0,
             'qty' => 1,
+            'productId' => null, // Add product ID field
             'productName' => '',
             'costPrice' => '',
-            'sellPrice' => '',
+            'sellPrice' => ''
         ];
 
-        $this->activeCustomer = $newIndex;
+        // Switch to new customer
+        $this->activeCustomer = count($this->customers) - 1;
+
+        // Reset totals for new customer
+        $this->totalItems = 0;
+        $this->totalCost = 0;
+        $this->totalSell = 0;
+        $this->profit = 0;
     }
 
     public function switchCustomer($index)
     {
-        $this->activeCustomer = $index;
-    }
-
-    public function calculateRowTotal()
-    {
-        if (!isset($this->customers[$this->activeCustomer])) {
-            return 0;
-        }
-
-        $customer = $this->customers[$this->activeCustomer];
-        return (float) $customer['sellPrice'] * (int) $customer['qty'];
-    }
-
-    public function addItem()
-    {
-        $customer = &$this->customers[$this->activeCustomer];
-
-        if (!$customer['productName'] || (int) $customer['qty'] <= 0) {
-            return;
-        }
-
-        $customer['items'][] = [
-            'id' => count($customer['items']) + 1,
-            'qty' => (int) $customer['qty'],
-            'name' => $customer['productName'],
-            'costPrice' => (float) $customer['costPrice'],
-            'sellPrice' => (float) $customer['sellPrice'],
-            'total' => (float) $customer['sellPrice'] * (int) $customer['qty']
+        // Save ALL current customer data including form inputs
+        $this->customers[$this->activeCustomer] = [
+            'customerName' => $this->customers[$this->activeCustomer]['customerName'] ?? '',
+            'customerPhone' => $this->customers[$this->activeCustomer]['customerPhone'] ?? '',
+            'carType' => $this->customers[$this->activeCustomer]['carType'] ?? '',
+            'carId' => $this->customers[$this->activeCustomer]['carId'] ?? '',
+            'items' => $this->customers[$this->activeCustomer]['items'] ?? [],
+            'totalItems' => $this->totalItems,
+            'totalCost' => $this->totalCost,
+            'totalSell' => $this->totalSell,
+            'profit' => $this->profit,
+            'qty' => $this->customers[$this->activeCustomer]['qty'] ?? 1,
+            'productName' => $this->customers[$this->activeCustomer]['productName'] ?? '',
+            'costPrice' => $this->customers[$this->activeCustomer]['costPrice'] ?? '',
+            'sellPrice' => $this->customers[$this->activeCustomer]['sellPrice'] ?? ''
         ];
 
-        $this->calculateTotals();
-        $this->resetInputs();
-    }
+        // Switch to new customer
+        $this->activeCustomer = $index;
 
-    public function removeItem($index)
-    {
-        if (isset($this->customers[$this->activeCustomer]['items'][$index])) {
-            // Remove the item
-            unset($this->customers[$this->activeCustomer]['items'][$index]);
-
-            // Reindex the array
-            $this->customers[$this->activeCustomer]['items'] = array_values($this->customers[$this->activeCustomer]['items']);
-
-            // Recalculate totals
-            $this->calculateTotals();
+        // Load ALL new customer data
+        if (isset($this->customers[$index])) {
+            $customer = $this->customers[$index];
+            $this->totalItems = $customer['totalItems'] ?? 0;
+            $this->totalCost = $customer['totalCost'] ?? 0;
+            $this->totalSell = $customer['totalSell'] ?? 0;
+            $this->profit = $customer['profit'] ?? 0;
         }
+        $this->loadCustomerData();
     }
 
-    private function calculateTotals()
+    private function loadCustomerData()
     {
-        $customer = &$this->customers[$this->activeCustomer];
-
-
-        $customer['totalItems'] = collect($customer['items'])->sum('qty');
-
-        $customer['totalCost'] = collect($customer['items'])->sum(function ($item) {
-            return (float) $item['costPrice'] * (int) $item['qty'];
-        });
-
-        $customer['totalSell'] = collect($customer['items'])->sum(function ($item) {
-            return (float) $item['sellPrice'] * (int) $item['qty'];
-        });
-
-        $customer['profit'] = $customer['totalSell'] - $customer['totalCost'];
-
-        // Update component properties
-        $this->totalItems = $customer['totalItems'];
-        $this->totalCost = $customer['totalCost'];
-        $this->totalSell = $customer['totalSell'];
-        $this->profit = $customer['profit'];
+        $customer = $this->customers[$this->activeCustomer];
+        $this->tempCustomerData = [
+            'customerName' => $customer['customerName'] ?? '',
+            'customerPhone' => $customer['customerPhone'] ?? '',
+            'carType' => $customer['carType'] ?? '',
+            'carId' => $customer['carId'] ?? ''
+        ];
     }
 
-    private function resetInputs()
+    public function saveCustomerData()
     {
-        $customer = &$this->customers[$this->activeCustomer];
-        $customer['qty'] = 1;
-        $customer['productName'] = '';
-        $customer['costPrice'] = '';
-        $customer['sellPrice'] = '';
+        $this->customers[$this->activeCustomer] = array_merge(
+            $this->customers[$this->activeCustomer],
+            [
+                'customerName' => $this->tempCustomerData['customerName'],
+                'customerPhone' => $this->tempCustomerData['customerPhone'],
+                'carType' => $this->tempCustomerData['carType'],
+                'carId' => $this->tempCustomerData['carId']
+            ]
+        );
+
+        $this->dispatch('customer-saved');
     }
 
     public function printNota()
     {
         $customer = $this->customers[$this->activeCustomer];
+        $customer['transactionDate'] = $this->transactionDate; // Add transaction date
 
         if (empty($customer['items'])) {
             return $this->addError('print', 'Belum ada item dalam nota!');
@@ -224,14 +241,14 @@ class PostCashier extends Component
             foreach ($customer['items'] as $item) {
                 Transaction::create([
                     'cashier_id' => $cashier->id,
-                    'product_id' => $item['id'], // Assuming you have product_id
+                    'product_id' => $item['product_id'],
                     'quantity' => $item['qty']
                 ]);
             }
 
             DB::commit();
 
-            // Dispatch print event
+            // Dispatch print event with added transaction date
             $this->dispatch('print-receipt', content: view('livewire.cashier.print-nota', [
                 'customer' => $customer,
                 'cashier_id' => $cashier->id
@@ -264,6 +281,118 @@ class PostCashier extends Component
         $this->customers = [];
         $this->activeCustomer = 0;
         $this->addNewCustomer();
+    }
+
+    public function deleteCustomer($index)
+    {
+        // Don't delete if it's the only customer
+        if (count($this->customers) <= 1) {
+            return;
+        }
+
+        unset($this->customers[$index]);
+        $this->customers = array_values($this->customers);
+
+        // If we deleted the active customer, switch to the first one
+        if ($index === $this->activeCustomer) {
+            $this->activeCustomer = 0;
+        }
+        // If we deleted a customer before the active one, adjust the index
+        elseif ($index < $this->activeCustomer) {
+            $this->activeCustomer--;
+        }
+    }
+
+    private function calculateRowTotal()
+    {
+        $customer = $this->customers[$this->activeCustomer];
+
+        if (!isset($customer['qty']) || !isset($customer['sellPrice'])) {
+            return 0;
+        }
+
+        $qty = (int) $customer['qty'];
+        $sellPrice = (float) $customer['sellPrice'];
+
+        return $qty * $sellPrice;
+    }
+
+    public function addItem()
+    {
+        $customer = &$this->customers[$this->activeCustomer];
+
+        if (!isset($customer['productName']) || empty($customer['productName']) || !isset($customer['qty']) || $customer['qty'] <= 0) {
+            return;
+        }
+
+        // Find product by name to get the real ID
+        $product = Product::where('title', $customer['productName'])->first();
+        if (!$product) {
+            return;
+        }
+
+        $customer['items'][] = [
+            'product_id' => $product->id, // Changed from 'id' to 'product_id'
+            'id' => $product->id, // Keep this for backward compatibility
+            'name' => $product['productName'],
+            'qty' => (int) $customer['qty'],
+            'costPrice' => (float) $customer['costPrice'],
+            'sellPrice' => (float) $customer['sellPrice'],
+            'total' => ((float) $customer['sellPrice'] * (int) $customer['qty'])
+        ];
+
+        // Update totals
+        $this->totalItems += (int) $customer['qty'];
+        $this->totalCost += ((float) $customer['costPrice'] * (int) $customer['qty']);
+        $this->totalSell += ((float) $customer['sellPrice'] * (int) $customer['qty']);
+        $this->profit = $this->totalSell - $this->totalCost;
+
+        // Update customer totals
+        $customer['totalItems'] = $this->totalItems;
+        $customer['totalCost'] = $this->totalCost;
+        $customer['totalSell'] = $this->totalSell;
+        $customer['profit'] = $this->profit;
+
+        // Reset input fields
+        $customer['qty'] = 1;
+        $customer['productName'] = '';
+        $customer['costPrice'] = '';
+        $customer['sellPrice'] = '';
+    }
+
+    public function selectProduct($id)
+    {
+        $product = Product::find($id);
+        if ($product) {
+            $customer = &$this->customers[$this->activeCustomer];
+            $customer['productId'] = $product->id; // Store the product ID
+            $customer['productName'] = $product->title;
+            $customer['costPrice'] = $product->modal;
+            // You can set default sell price based on modal if needed
+            // $customer['sellPrice'] = $product->modal * 1.2; // 20% markup
+        }
+    }
+
+    public function removeItem($index)
+    {
+        $customer = &$this->customers[$this->activeCustomer];
+        $item = $customer['items'][$index];
+
+        // Subtract from totals
+        $this->totalItems -= $item['qty'];
+        $this->totalCost -= ($item['costPrice'] * $item['qty']);
+        $this->totalSell -= ($item['sellPrice'] * $item['qty']);
+        $this->profit = $this->totalSell - $this->totalCost;
+
+        // Update customer totals
+        $customer['totalItems'] = $this->totalItems;
+        $customer['totalCost'] = $this->totalCost;
+        $customer['totalSell'] = $this->totalSell;
+        $customer['profit'] = $this->profit;
+
+        // Remove the item
+        unset($customer['items'][$index]);
+        $customer['items'] = array_values($customer['items']);
     }
 
     public function render()
