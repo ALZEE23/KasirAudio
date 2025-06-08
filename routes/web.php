@@ -31,4 +31,8 @@ Route::view('buyer', 'buyer')
 Route::view('transaction', 'transaction')
     ->middleware(['auth'])
     ->name('transaction');
+
+Route::view('report', 'report')
+    ->middleware(['auth'])
+    ->name('report');
 require __DIR__ . '/auth.php';
