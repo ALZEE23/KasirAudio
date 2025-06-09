@@ -261,6 +261,15 @@
                                 </td>
                             </tr>
 
+                            <!-- Add error message row -->
+                            @error('stock')
+                                <tr>
+                                    <td colspan="6">
+                                        <div class="text-red-500 text-sm mt-1">{{ $message }}</div>
+                                    </td>
+                                </tr>
+                            @enderror
+
                             <!-- Items List -->
                             @foreach($customers[$activeCustomer]['items'] as $index => $item)
                                 <tr class="border-b border-gray-100">

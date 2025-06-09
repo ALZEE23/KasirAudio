@@ -115,7 +115,24 @@ new class extends Component
                 <x-responsive-nav-link :href="route('profile')" wire:navigate>
                     {{ __('Profile') }}
                 </x-responsive-nav-link>
-
+                <x-responsive-nav-link :href="route('cashier')" :active="request()->routeIs('cashier')" wire:navigate>
+                    {{ __('Cashier') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('product')" :active="request()->routeIs('product')" wire:navigate>
+                    {{ __('Product') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('category')" :active="request()->routeIs('category')" wire:navigate>
+                    {{ __('Category') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('buyer')" :active="request()->routeIs('buyer')" wire:navigate>
+                    {{ __('Buyer') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('transaction')" :active="request()->routeIs('transaction')" wire:navigate>
+                    {{ __('Transaction') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('report')" :active="request()->routeIs('report')" wire:navigate>
+                    {{ __('Report') }}
+                </x-responsive-nav-link>
                 <!-- Authentication -->
                 <button wire:click="logout" class="w-full text-start">
                     <x-responsive-nav-link>

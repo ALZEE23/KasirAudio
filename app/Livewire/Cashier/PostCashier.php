@@ -208,7 +208,6 @@ class PostCashier extends Component
     public function printNota()
     {
         $customer = $this->customers[$this->activeCustomer];
-        $customer['transactionDate'] = $this->transactionDate;
 
         if (empty($customer['items'])) {
             return $this->addError('print', 'Belum ada item dalam nota!');
@@ -220,6 +219,19 @@ class PostCashier extends Component
 
         try {
             DB::beginTransaction();
+
+            // Validate stock availability before processing
+            foreach ($customer['items'] as $item) {
+                $product = Product::find($item['product_id']);
+
+                if (!$product) {
+                    throw new \Exception("Produk tidak ditemukan!");
+                }
+
+                if ($product->stock < $item['qty']) {
+                    throw new \Exception("Stok {$product->title} tidak mencukupi! Tersedia: {$product->stock}");
+                }
+            }
 
             // Search for existing buyer first
             $buyer = Buyer::where('phone_number', $customer['customerPhone'])
@@ -244,7 +256,7 @@ class PostCashier extends Component
                 ]);
             }
 
-            // Create cashier record
+            // Create cashier record (without transaction_date)
             $cashier = Cashier::create([
                 'buyer_id' => $buyer->id,
                 'total_buy' => $customer['totalSell'],
@@ -252,16 +264,22 @@ class PostCashier extends Component
                 'capital' => $customer['totalCost']
             ]);
 
-            // Create transactions for each item
+            // Create transactions and update stock
             foreach ($customer['items'] as $item) {
                 Transaction::create([
                     'cashier_id' => $cashier->id,
                     'product_id' => $item['product_id'],
                     'quantity' => $item['qty']
                 ]);
+
+                // Decrease product stock
+                Product::where('id', $item['product_id'])->decrement('stock', $item['qty']);
             }
 
             DB::commit();
+
+            // Add temporary transaction date just for printing
+            $customer['transactionDate'] = now()->format('Y-m-d H:i:s');
 
             // Dispatch print event
             $this->dispatch('print-receipt', content: view('livewire.cashier.print-nota', [
@@ -269,7 +287,6 @@ class PostCashier extends Component
                 'cashier_id' => $cashier->id
             ])->render());
 
-            // Only clear current customer's data, not remove them
             $this->clearCustomerData($this->activeCustomer);
 
         } catch (\Exception $e) {
@@ -373,16 +390,36 @@ class PostCashier extends Component
             return;
         }
 
-        // Find product by name to get the real ID
+        // Find product by name to get the real ID and check stock
         $product = Product::where('title', $customer['productName'])->first();
         if (!$product) {
             return;
         }
 
+        // Check if quantity exceeds available stock
+        if ($customer['qty'] > $product->stock) {
+            $this->addError('stock', "Stok tidak mencukupi! Stok tersedia: {$product->stock}");
+            return;
+        }
+
+        // Check if product already exists in items
+        $existingQty = 0;
+        foreach ($customer['items'] as $item) {
+            if ($item['product_id'] === $product->id) {
+                $existingQty += $item['qty'];
+            }
+        }
+
+        // Validate total quantity including existing items
+        if (($existingQty + $customer['qty']) > $product->stock) {
+            $remainingStock = $product->stock - $existingQty;
+            $this->addError('stock', "Total quantity melebihi stok! Sisa stok: {$remainingStock}");
+            return;
+        }
+
         $customer['items'][] = [
-            'product_id' => $product->id, // Changed from 'id' to 'product_id'
-            'id' => $product->id, // Keep this for backward compatibility
-            'name' => $product['title'],
+            'product_id' => $product->id,
+            'name' => $product->title,
             'qty' => (int) $customer['qty'],
             'costPrice' => (float) $customer['costPrice'],
             'sellPrice' => (float) $customer['sellPrice'],
