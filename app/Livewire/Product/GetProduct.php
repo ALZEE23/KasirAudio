@@ -17,6 +17,12 @@ class GetProduct extends Component
     public $sortDirection = 'asc';
     public $categories;
 
+    protected $listeners = [
+        'product-saved' => '$refresh',
+        'editProduct' => 'editProduct',
+        'deleteProduct' => 'deleteProduct'
+    ];
+
     public function mount()
     {
         $this->categories = Category::all();
@@ -35,6 +41,22 @@ class GetProduct extends Component
     public function updatingSearch()
     {
         $this->resetPage();
+    }
+
+    public function editProduct($id)
+    {
+        $this->dispatch('edit-product', id: $id);
+    }
+
+    public function deleteProduct($id)
+    {
+        try {
+            $product = Product::findOrFail($id);
+            $product->delete();
+            session()->flash('message', 'Produk berhasil dihapus.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Gagal menghapus produk.');
+        }
     }
 
     public function render()

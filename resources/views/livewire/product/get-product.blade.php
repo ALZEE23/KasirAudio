@@ -1,12 +1,29 @@
 <div class="p-6">
+    @if (session()->has('message'))
+        <div class="mb-4 p-4 bg-green-100 text-green-700 rounded-lg">
+            {{ session('message') }}
+        </div>
+    @endif
+
+    @if (session()->has('error'))
+        <div class="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
+            {{ session('error') }}
+        </div>
+    @endif
+
     <div x-data="{ 
         showModal: false,
+        showDeleteModal: false,
+        productToDelete: null,
         init() {
             Livewire.on('close-modal', () => {
                 this.showModal = false;
             });
             Livewire.on('product-saved', () => {
                 this.showModal = false;
+            });
+            Livewire.on('edit-product', () => {
+                this.showModal = true;
             });
         }
     }">
@@ -34,15 +51,45 @@
             <!-- Modal Content -->
             <div class="relative min-h-screen flex items-center justify-center p-4">
                 <div @click.away="showModal = false" class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full">
-                    <div class="absolute top-0 right-0 pt-4 pr-4">
-                        <button @click="showModal = false" class="text-gray-400 hover:text-gray-500">
-                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
+                   
                     <livewire:product.post-product />
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div x-show="showDeleteModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+            <div class="fixed inset-0 bg-black opacity-50"></div>
+
+            <div class="relative min-h-screen flex items-center justify-center p-4">
+                <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                    <div class="text-center">
+                        <svg class="mx-auto mb-4 w-14 h-14 text-red-500" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+
+                        <h3 class="mb-5 text-lg font-normal text-gray-700">
+                            Apakah anda yakin ingin menghapus produk ini?
+                        </h3>
+
+                        <div class="flex justify-center gap-4">
+                            <button @click="
+                                $wire.deleteProduct(productToDelete);
+                                showDeleteModal = false;
+                                productToDelete = null;
+                            " class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                                Ya, Hapus
+                            </button>
+                            <button @click="
+                                showDeleteModal = false;
+                                productToDelete = null;
+                            " class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                                Batal
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -111,14 +158,16 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex space-x-2">
-                                    <button wire:click="$dispatch('editProduct', { id: {{ $product->id }} })"
+                                    <button wire:click="editProduct({{ $product->id }})"
                                         class="p-1 bg-blue-500 text-white rounded hover:bg-blue-600">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                         </svg>
                                     </button>
-                                    <button wire:click="$dispatch('deleteProduct', { id: {{ $product->id }} })"
+                                    <button @click="
+                                                showDeleteModal = true;
+                                                productToDelete = {{ $product->id }};"
                                         class="p-1 bg-red-500 text-white rounded hover:bg-red-600">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

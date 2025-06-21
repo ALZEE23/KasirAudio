@@ -8,14 +8,20 @@ class Product extends Model
 {
     protected $fillable = [
         'title',
-        'modal',
+        'category_id',
+        'subcategory_id',
         'stock',
-        'category_id'
+        'modal'
     ];
 
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function subcategory()
+    {
+        return $this->belongsTo(Subcategory::class);
     }
 
     public function transactions()

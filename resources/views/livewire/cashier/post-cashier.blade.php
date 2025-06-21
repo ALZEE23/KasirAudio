@@ -98,26 +98,19 @@
                                 });
                             }
                         }" class="relative">
-                            <input type="text" 
-                                x-model="search"
-                                wire:model.defer="tempCustomerData.customerName"
-                                placeholder="Masukkan nama pembeli"
-                                @focus="open = true"
+                            <input type="text" x-model="search" wire:model.defer="tempCustomerData.customerName"
+                                placeholder="Masukkan nama pembeli" @focus="open = true"
                                 @keydown.escape.window="open = false"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200">
-                            
-                            <div x-show="open && buyers.length > 0" 
-                                x-transition
-                                @click.away="open = false"
+
+                            <div x-show="open && buyers.length > 0" x-transition @click.away="open = false"
                                 class="absolute z-50 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
                                 <template x-for="buyer in buyers" :key="buyer.id">
-                                    <div 
-                                        @click="
+                                    <div @click="
                                             $wire.selectBuyer(buyer.id);
                                             search = buyer.name;
                                             open = false;
-                                        "
-                                        class="px-4 py-2 cursor-pointer hover:bg-gray-100">
+                                        " class="px-4 py-2 cursor-pointer hover:bg-gray-100">
                                         <div class="font-medium" x-text="buyer.name"></div>
                                         <div class="text-sm text-gray-600">
                                             <span x-text="buyer.car_number"></span>
@@ -163,7 +156,7 @@
                 </div>
 
                 <!-- Products Table with horizontal scroll on mobile -->
-                <div class="overflow-x-auto">
+                <div class="overflow-x-scroll md:overflow-x-visible overflow-y-visible">
                     <table class="w-full mb-6 min-w-[800px]">
                         <thead>
                             <tr class="bg-gray-50">
@@ -188,40 +181,72 @@
                                         search: '',
                                         selectedProduct: null,
                                         filteredProducts: [],
+                                        selectedIndex: -1,
                                         init() {
-                                            this.filteredProducts = $wire.products
+                                            this.filteredProducts = $wire.products;
                                             this.$watch('search', value => {
                                                 if (value === '') {
-                                                    this.filteredProducts = $wire.products
+                                                    this.filteredProducts = $wire.products;
                                                 } else {
                                                     this.filteredProducts = $wire.products.filter(product => 
                                                         product.title.toLowerCase().includes(value.toLowerCase())
-                                                    )
+                                                    );
                                                 }
-                                            })
+                                                this.selectedIndex = -1;
+                                            });
+                                        },
+                                        selectProduct(product) {
+                                            this.search = product.title;
+                                            $wire.selectProduct(product.id);
+                                            this.open = false;
+                                        },
+                                        onKeyDown(event) {
+                                            if (!this.open) return;
+
+                                            switch(event.key) {
+                                                case 'ArrowDown':
+                                                    event.preventDefault();
+                                                    if (this.selectedIndex < this.filteredProducts.length - 1) {
+                                                        this.selectedIndex++;
+                                                        this.$refs.productsList.children[this.selectedIndex].scrollIntoView({
+                                                            block: 'nearest'
+                                                        });
+                                                    }
+                                                    break;
+                                                case 'ArrowUp':
+                                                    event.preventDefault();
+                                                    if (this.selectedIndex > 0) {
+                                                        this.selectedIndex--;
+                                                        this.$refs.productsList.children[this.selectedIndex].scrollIntoView({
+                                                            block: 'nearest'
+                                                        });
+                                                    }
+                                                    break;
+                                                case 'Enter':
+                                                    event.preventDefault();
+                                                    if (this.selectedIndex > -1 && this.filteredProducts[this.selectedIndex]) {
+                                                        this.selectProduct(this.filteredProducts[this.selectedIndex]);
+                                                    }
+                                                    break;
+                                                case 'Escape':
+                                                    this.open = false;
+                                                    break;
+                                            }
                                         }
-                                    }" @click.away="open = false">
-                                        <input 
-                                            type="text" 
-                                            x-model="search"
+                                    }" @click.away="open = false" @keydown="onKeyDown($event)">
+                                        <input type="text" x-model="search"
                                             wire:model="customers.{{ $activeCustomer }}.productName"
-                                            @focus="open = true"
-                                            @keydown.escape.window="open = false"
+                                            @focus="open = true" @keydown.escape.window="open = false"
                                             placeholder="Cari atau ketik produk"
                                             class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200">
 
-                                        <div x-show="open" 
-                                            x-transition
-                                            class="absolute z-50 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                            <template x-for="product in filteredProducts" :key="product.id">
-                                                <div 
-                                                    @click="
-                                                        search = product.title;
-                                                        $wire.selectProduct(product.id);
-                                                        open = false;
-                                                    "
+                                        <div x-show="open" x-transition
+                                            class="absolute left-0 w-full bg-white rounded-md shadow-lg max-h-60 overflow-y-auto z-[9999]"
+                                            style="top: calc(100% + 0.5rem);" x-ref="productsList">
+                                            <template x-for="(product, index) in filteredProducts" :key="product.id">
+                                                <div @click="selectProduct(product)" @mouseenter="selectedIndex = index"
                                                     class="px-4 py-2 cursor-pointer hover:bg-gray-100"
-                                                    :class="{ 'bg-gray-100': selectedProduct === product.id }">
+                                                    :class="{ 'bg-blue-50': selectedIndex === index }">
                                                     <div class="font-medium" x-text="product.title"></div>
                                                     <div class="text-sm text-gray-600">
                                                         <span>Stok: </span>
@@ -231,23 +256,75 @@
                                                     </div>
                                                 </div>
                                             </template>
-                                            <div 
-                                                x-show="filteredProducts.length === 0" 
+                                            <div x-show="filteredProducts.length === 0"
                                                 class="px-4 py-2 text-sm text-gray-500">
                                                 Produk tidak ditemukan
                                             </div>
                                         </div>
                                     </div>
                                 </td>
+                                <!-- Replace the Modal input -->
                                 <td class="py-2">
-                                    <input type="number" wire:model="customers.{{ $activeCustomer }}.costPrice"
-                                        placeholder="Modal"
-                                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200">
+                                    <div x-data="{ 
+                                        formattedValue: '',
+                                        actualValue: @entangle('customers.' . $activeCustomer . '.costPrice'),
+                                        formatNumber(val) {
+                                            if (!val) return '';
+                                            return new Intl.NumberFormat('id-ID').format(val);
+                                        },
+                                        init() {
+                                            this.formattedValue = this.formatNumber(this.actualValue);
+                                            this.$watch('actualValue', value => {
+                                                this.formattedValue = this.formatNumber(value);
+                                            });
+                                        }
+                                    }">
+                                        <div class="relative">
+                                            <div
+                                                class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                                <span class="text-gray-500 sm:text-sm">Rp</span>
+                                            </div>
+                                            <input type="text" x-model="formattedValue" @input="
+                                                    const numbers = $event.target.value.replace(/[^0-9]/g, '');
+                                                    actualValue = numbers;
+                                                    formattedValue = formatNumber(numbers);
+                                                "
+                                                class="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+                                                placeholder="0">
+                                        </div>
+                                    </div>
                                 </td>
+
+                                <!-- Replace the Harga input -->
                                 <td class="py-2">
-                                    <input type="number" wire:model="customers.{{ $activeCustomer }}.sellPrice"
-                                        placeholder="Harga"
-                                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200">
+                                    <div x-data="{ 
+                                        formattedValue: '',
+                                        actualValue: @entangle('customers.' . $activeCustomer . '.sellPrice'),
+                                        formatNumber(val) {
+                                            if (!val) return '';
+                                            return new Intl.NumberFormat('id-ID').format(val);
+                                        },
+                                        init() {
+                                            this.formattedValue = this.formatNumber(this.actualValue);
+                                            this.$watch('actualValue', value => {
+                                                this.formattedValue = this.formatNumber(value);
+                                            });
+                                        }
+                                    }">
+                                        <div class="relative">
+                                            <div
+                                                class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                                <span class="text-gray-500 sm:text-sm">Rp</span>
+                                            </div>
+                                            <input type="text" x-model="formattedValue" @input="
+                                                    const numbers = $event.target.value.replace(/[^0-9]/g, '');
+                                                    actualValue = numbers;
+                                                    formattedValue = formatNumber(numbers);
+                                                "
+                                                class="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+                                                placeholder="0">
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="py-2 font-medium">Rp {{ number_format($this->calculateRowTotal()) }}</td>
                                 <td class="py-2">

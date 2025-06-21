@@ -18,7 +18,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700">Kategori</label>
-                <select wire:model="category_id"
+                <select wire:model.live="category_id"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200">
                     <option value="">Pilih Kategori</option>
                     @foreach($categories as $category)
@@ -26,6 +26,19 @@
                     @endforeach
                 </select>
                 @error('category_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Sub Kategori</label>
+                <select wire:model="subcategory_id"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
+                    {{ empty($category_id) ? 'disabled' : '' }}>
+                    <option value="">Pilih Sub Kategori</option>
+                    @foreach($subcategories as $subcategory)
+                        <option value="{{ $subcategory->id }}">{{ $subcategory->title }}</option>
+                    @endforeach
+                </select>
+                @error('subcategory_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
             <div x-data="{ 
@@ -67,7 +80,7 @@
         </div>
 
         <div class="flex justify-end pt-4 border-t">
-            <button type="button" @click="showModal = false"
+            <button type="button" @click="showModal = false; $wire.resetForm()"
                 class="mr-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-700">
                 Batal
             </button>
